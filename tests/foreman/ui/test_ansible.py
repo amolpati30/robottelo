@@ -11,12 +11,14 @@
 :CaseImportance: Critical
 
 """
+
 from fauxfactory import gen_string
 import pytest
 import yaml
 
 from robottelo import constants
 from robottelo.config import robottelo_tmp_dir, settings
+from wait_for import wait_for
 
 
 def test_positive_create_and_delete_variable(target_sat):
@@ -298,28 +300,8 @@ def test_positive_role_variable_information(self):
     """
 
 
-@pytest.mark.stubbed
 @pytest.mark.tier2
-def test_positive_assign_role_in_new_ui(self):
-    """Using the new Host UI, assign a role to a Host
-
-    :id: 044f38b4-cff2-4ddc-b93c-7e9f2826d00d
-
-    :steps:
-        1. Register a RHEL host to Satellite.
-        2. Import all roles available by default.
-        3. Navigate to the new UI for the given Host.
-        4. Select the 'Ansible' tab
-        5. Click the 'Assign Ansible Roles' button.
-        6. Using the popup, assign a role to the Host.
-
-    :expectedresults: The Role is successfully assigned to the Host, and shows up on the UI
-    """
-
-
-@pytest.mark.stubbed
-@pytest.mark.tier2
-def test_positive_remove_role_in_new_ui(self):
+def test_positive_assign_and_remove_ansible_role_in_new_ui(target_sat, function_host):
     """Using the new Host UI, remove the role(s) of a Host
 
     :id: d6de5130-45f6-4349-b490-fbde2aed082c
@@ -336,3 +318,26 @@ def test_positive_remove_role_in_new_ui(self):
     :expectedresults: The Role is successfully removed from the Host, and no longer shows
         up on the UI
     """
+    SELECTED_ROLE = 'RedHatInsights.insights-client'
+    location = function_host.location.read()
+    organization = function_host.organization.read()
+    proxy_id = target_sat.nailgun_smart_proxy.id
+    target_sat.api.AnsibleRoles().sync(data={'proxy_id': proxy_id, 'role_names': [SELECTED_ROLE]})
+    with target_sat.ui_session() as session:
+        session.location.select(location.name)
+        session.organization.select(organization.name)
+        # add ansible role
+        session.host_new.add_single_ansible_role(function_host.name)
+        wait_for(lambda: session.browser.refresh(), timeout=5)
+        # verify ansible role assigned to new UI for the given Host
+        ansible_roles_table = session.host_new.get_ansible_roles(function_host.name)
+        assert ansible_roles_table[0]['Name'] == SELECTED_ROLE
+
+        session.host_new.remove_ansible_role(function_host.name)
+        # verify ansible role removed
+        result = session.host_new.get_details(
+            function_host.name, widget_names='ansible.roles.noRoleAssign'
+        )
+        assert (
+            result['ansible']['roles']['noRoleAssign'] == 'No roles assigned directly to the host'
+        )
