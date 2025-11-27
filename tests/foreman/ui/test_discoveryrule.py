@@ -83,12 +83,11 @@ def test_positive_crud_with_non_admin_user(
     new_search = gen_string('alpha')
     new_hg_name = gen_string('alpha')
     new_priority = str(gen_integer(101, 200))
-    hg = module_target_sat.api.HostGroup(organization=[module_org]).create()
-    new_hg_name = module_target_sat.api.HostGroup(organization=[module_org]).create()
+    hg = module_target_sat.api.HostGroup(organization=[module_org], location=[module_location],).create()
+    new_hg_name = module_target_sat.api.HostGroup(organization=[module_org], location=[module_location],).create()
     with module_target_sat.ui_session(
         user=manager_user.login, password=manager_user.password
     ) as session:
-        session.location.select(loc_name=module_location.name)
         session.discoveryrule.create(
             {
                 'primary.name': rule_name,
